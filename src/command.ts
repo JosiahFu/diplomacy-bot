@@ -2,7 +2,7 @@ import { ApplicationCommandOptionBase, ApplicationCommandOptionType, CacheType, 
 import { STATE, Season, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
-    const outputChannel = interaction.client.channels.cache.get(process.env.OUTPUT_CHANNEL_ID!);
+    const outputChannel = interaction.client.channels.cache.get(process.env.OUTPUT_CHANNEL_ID);
     if (!outputChannel?.isTextBased()) process.exit('Output channel was not a text based channel');
     return outputChannel;
 }
