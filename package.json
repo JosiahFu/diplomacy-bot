@@ -1,18 +1,19 @@
 {
-  "name": "anonymous-question-bot",
+  "name": "diplomacy-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "A discord bot to assist in playing the game Diplomacy",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js"
   },
-  "keywords": [],
-  "author": "",
+  "author": "ThePotatoArchivist",
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1",
-    "typescript": "^5.3.3"
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
   }
 }
