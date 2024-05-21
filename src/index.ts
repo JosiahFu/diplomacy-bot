@@ -6,6 +6,7 @@ import {
     REST,
     Routes,
     SlashCommandBuilder,
+    ActivityType,
 } from 'discord.js'
 import { commands, getOptionAdd } from './command.js';
 
@@ -20,12 +21,12 @@ const onExit = async () => {
 
 client.once('ready', () => {
     console.log('Bot is online!');
-    // client.user!.setPresence({
-    //     activities: [{
-    //         name: "Use /send to ask an anonymous question",
-    //         type: ActivityType.Custom
-    //     }]
-    // })
+    client.user!.setPresence({
+        activities: [{
+            name: "Let the games begin",
+            type: ActivityType.Custom
+        }]
+    })
 
     process.on('SIGINT', onExit);
     process.on('SIGTERM', onExit);
@@ -36,16 +37,14 @@ const rest = new REST().setToken(BOT_TOKEN);
 await rest.put(
     Routes.applicationCommands(APPLICATION_ID),
     {
-        body: Object.entries(commands).map(([name, {description, options, priveleged}]) => {
+        body: Object.entries(commands).map(([name, {description, options}]) => {
             const command = new SlashCommandBuilder()
                 .setName(name)
                 .setDescription(description);
             
-            if (priveleged) command.setDefaultMemberPermissions(0);
-            
             if (options) {
                 for (const option of options) {
-                    getOptionAdd(option)?.bind(command)(option)
+                    getOptionAdd(option)?.call(command, option)
                 }
             }
 

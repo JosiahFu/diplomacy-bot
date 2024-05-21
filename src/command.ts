@@ -11,7 +11,6 @@ interface Command {
     description: string;
     options?: ApplicationCommandOptionBase[];
     execute(interaction: ChatInputCommandInteraction<CacheType>, options: Omit<CommandInteractionOptionResolver<CacheType>, 'getMessage' | 'getFocused'>): void | Promise<void>;
-    priveleged?: boolean;
 }
 
 export const commands: Record<string, Command> = {
@@ -41,7 +40,6 @@ export const commands: Record<string, Command> = {
                 ephemeral: true
             })
         },
-        priveleged: true,
     },
     reveal: {
         description: 'Reveal all orders',
@@ -56,7 +54,6 @@ export const commands: Record<string, Command> = {
             STATE.lastReveal = message.id
             updateStorage();
         },
-        priveleged: true,
     },
     unreveal: {
         description: 'Undo the last reveal',
@@ -86,7 +83,6 @@ export const commands: Record<string, Command> = {
                 ephemeral: true
             })
         },
-        priveleged: true,
     },
     endturn: {
         description: 'End the turn',
@@ -103,7 +99,6 @@ export const commands: Record<string, Command> = {
                 ephemeral: true,
             })
         },
-        priveleged: true,
     },
     revertendturn: {
         description: 'Revert the last end turn',
@@ -132,7 +127,6 @@ export const commands: Record<string, Command> = {
                 ephemeral: true
             })
         },
-        priveleged: true,
     },
     newgame: {
         description: 'Start a new game',
@@ -149,7 +143,6 @@ export const commands: Record<string, Command> = {
             STATE.lastEndTurn = message.id
             updateStorage();
         },
-        priveleged: true,
     },
     setturn: {
         description: 'Manually set the turn',
@@ -178,7 +171,6 @@ export const commands: Record<string, Command> = {
                 ephemeral: true
             });
         },
-        priveleged: true,
     }
 };
 
