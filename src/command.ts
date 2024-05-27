@@ -30,6 +30,17 @@ export const commands: Record<string, Command> = {
             })
         },
     },
+    showorder: {
+        description: 'View your current order',
+        options: [],
+        async execute(interaction) {
+            const order = STATE.orders[interaction.user.id]
+            await interaction.reply({
+                content: `Your order is:\n> ${order}`,
+                ephemeral: true,
+            })
+        },
+    },
     orderstatus: {
         description: 'See which players have submitted orders',
         options: [],
