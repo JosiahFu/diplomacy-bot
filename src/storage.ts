@@ -6,12 +6,17 @@ const seasons = ['Spring', 'Fall'] as const;
 
 export type Season = (typeof seasons)[number]
 
+export const countries = ['austria', 'england', 'france', 'germany', 'italy', 'russia', 'turkey'] as const
+
+export type Country = (typeof countries)[number]
+
 interface State {
     orders: Record<string, string>,
     turn: [year: number, season: Season],
     lastReveal: string | undefined,
     lastEndTurn: string | undefined,
     lastOrders: Record<string, string>,
+    targets: Record<Country, Country> | undefined,
 }
 
 let defaultState: State = {
@@ -19,7 +24,8 @@ let defaultState: State = {
     turn: [1901, 'Spring'],
     lastReveal: undefined,
     lastEndTurn: undefined,
-    lastOrders: {}
+    lastOrders: {},
+    targets: undefined
 }
 
 let content;

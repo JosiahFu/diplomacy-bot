@@ -1,5 +1,5 @@
-import { ApplicationCommandOptionBase, ApplicationCommandOptionType, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel } from 'discord.js';
-import { STATE, Season, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
+import { ApplicationCommandOptionBase, ApplicationCommandOptionType, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMemberRoleManager, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel } from 'discord.js';
+import { Country, STATE, Season, countries, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
     const outputChannel = interaction.client.channels.cache.get(process.env.OUTPUT_CHANNEL_ID);
@@ -11,6 +11,16 @@ interface Command {
     description: string;
     options?: ApplicationCommandOptionBase[];
     execute(interaction: ChatInputCommandInteraction<CacheType>, options: Omit<CommandInteractionOptionResolver<CacheType>, 'getMessage' | 'getFocused'>): void | Promise<void>;
+}
+
+const roles: Record<Country, string> = {
+    austria: process.env.ROLE_AUSTRIA,
+    england: process.env.ROLE_ENGLAND,
+    france: process.env.ROLE_FRANCE,
+    germany: process.env.ROLE_GERMANY,
+    italy: process.env.ROLE_ITALY,
+    russia: process.env.ROLE_RUSSIA,
+    turkey: process.env.ROLE_TURKEY,
 }
 
 export const commands: Record<string, Command> = {
@@ -182,6 +192,50 @@ export const commands: Record<string, Command> = {
                 ephemeral: true
             });
         },
+    },
+    assigntargets: {
+        description: 'Assign each country a unique target',
+        options: [],
+        execute(interaction, options) {
+            const order = [...countries]
+            order.sort(() => Math.random() - 0.5)
+            const targets = Object.fromEntries(order.map((e, i) => [e, order[(i + 1) % order.length]])) as Record<Country, Country>
+            STATE.targets = targets;
+            updateStorage();
+            interaction.reply({
+                content: 'Targets assigned!',
+                ephemeral: true
+            })
+            getOutputChannel(interaction).send({
+                content: `# Targets Assigned!`
+            })
+        }
+    },
+    gettarget: {
+        description: 'Reveal what your target is',
+        options: [],
+        execute(interaction, options) {
+            const entry = (Object.entries(roles) as [Country, string][]).find(([_, id]) => (interaction.member?.roles as GuildMemberRoleManager).cache.has(id))
+            if (entry === undefined) {
+                interaction.reply({
+                    content: 'You don\'t have a country role',
+                    ephemeral: true
+                })
+                return
+            }
+            if (STATE.targets === undefined) {
+                interaction.reply({
+                    content: 'Targets are not assigned yet',
+                    ephemeral: true
+                })
+                return
+            }
+            const target = STATE.targets[entry[0]]
+            interaction.reply({
+                content: `Your target is <@&${roles[target]}>`,
+                ephemeral: true
+            })
+        }
     }
 };
 
