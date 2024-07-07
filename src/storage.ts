@@ -17,6 +17,7 @@ interface State {
     lastEndTurn: string | undefined,
     lastOrders: Record<string, string>,
     targets: Record<Country, Country> | undefined,
+    gSlideId: string | undefined,
 }
 
 let defaultState: State = {
@@ -25,7 +26,8 @@ let defaultState: State = {
     lastReveal: undefined,
     lastEndTurn: undefined,
     lastOrders: {},
-    targets: undefined
+    targets: undefined,
+    gSlideId: undefined
 }
 
 let content;

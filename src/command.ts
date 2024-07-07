@@ -1,10 +1,27 @@
-import { ApplicationCommandOptionBase, ApplicationCommandOptionType, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMemberRoleManager, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel } from 'discord.js';
+import { ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMemberRoleManager, Interaction, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel } from 'discord.js';
 import { Country, STATE, Season, countries, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
     const outputChannel = interaction.client.channels.cache.get(process.env.OUTPUT_CHANNEL_ID);
     if (!outputChannel?.isTextBased()) process.exit('Output channel was not a text based channel');
     return outputChannel;
+}
+
+async function sendTurnMessage(interaction: ChatInputCommandInteraction, season: Season, year: number) {
+    const message = await getOutputChannel(interaction).send({
+        content: `## Start of ${season} ${year}`,
+        files: STATE.gSlideId ? [
+            new AttachmentBuilder(`https://docs.google.com/presentation/d/${STATE.gSlideId}/export?format=png`)
+        ] : undefined,
+    })
+    STATE.lastEndTurn = message.id
+    updateStorage();
+    return message;
+}
+
+function extractId(link: string | null) {
+    if (link === null) return undefined
+    return gSlideUrlRegex.exec(link)?.[1] ?? gSlideIdRegex.exec(link)?.[0] ?? undefined
 }
 
 interface Command {
@@ -22,6 +39,9 @@ const roles: Record<Country, string> = {
     russia: process.env.ROLE_RUSSIA,
     turkey: process.env.ROLE_TURKEY,
 }
+
+const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9-]+)\/?/;
+const gSlideIdRegex = /[A-Za-z0-9-]+/
 
 export const commands: Record<string, Command> = {
     order: {
@@ -110,11 +130,7 @@ export const commands: Record<string, Command> = {
         async execute(interaction) {
             const [year, season] = STATE.turn;
             incrementTurn();
-            const message = await getOutputChannel(interaction).send({
-                content: `## Start of ${season} ${year}`
-            })
-            STATE.lastEndTurn = message.id
-            updateStorage();
+            sendTurnMessage(interaction, season, year)
             interaction.reply({
                 content: 'Ended the turn',
                 ephemeral: true,
@@ -151,18 +167,24 @@ export const commands: Record<string, Command> = {
     },
     newgame: {
         description: 'Start a new game',
-        async execute(interaction) {
+        options: [
+            new SlashCommandStringOption()
+                .setName('slide_link')
+                .setDescription('The URL or ID of the Google Slides document holding the current game')
+                .setRequired(false)
+        ],
+        execute(interaction, options) {
             interaction.reply({
                 content: 'Starting a new game',
                 ephemeral: true
             });
+            const slideId = extractId(options.getString('slide_link', false))
             resetState();
+            if (slideId) {
+                STATE.gSlideId = slideId
+            }
             const [year, season] = STATE.turn;
-            const message = await getOutputChannel(interaction).send({
-                content: `## Start of ${season} ${year}`
-            })
-            STATE.lastEndTurn = message.id
-            updateStorage();
+            sendTurnMessage(interaction, season, year)
         },
     },
     setturn: {
@@ -195,7 +217,6 @@ export const commands: Record<string, Command> = {
     },
     assigntargets: {
         description: 'Assign each country a unique target',
-        options: [],
         execute(interaction, options) {
             const order = [...countries]
             order.sort(() => Math.random() - 0.5)
@@ -213,7 +234,6 @@ export const commands: Record<string, Command> = {
     },
     gettarget: {
         description: 'Reveal what your target is',
-        options: [],
         execute(interaction, options) {
             const entry = (Object.entries(roles) as [Country, string][]).find(([_, id]) => (interaction.member?.roles as GuildMemberRoleManager).cache.has(id))
             if (entry === undefined) {
