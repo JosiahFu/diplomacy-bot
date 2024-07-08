@@ -216,6 +216,30 @@ export const commands: Record<string, Command> = {
             });
         },
     },
+    setslides: {
+        description: 'Set the Google Slide holding the game',
+        options: [
+            new SlashCommandStringOption()
+                .setName('slide_link')
+                .setDescription('The URL or ID of the Google Slides document holding the current game')
+                .setRequired(false)
+        ],
+        execute(interaction, options) {
+            const slideId = extractId(options.getString('slide_link', false))
+            if (!slideId) {
+                interaction.reply({
+                    content: 'Invalid link!'
+                });
+                return;
+            }
+            STATE.gSlideId = slideId
+            interaction.reply({
+                content: `Set slide link to https://docs.google.com/presentation/d/${slideId}/`,
+                ephemeral: true
+            });
+            updateStorage();
+        },
+    },
     assigntargets: {
         description: 'Assign each country a unique target',
         execute(interaction, options) {
