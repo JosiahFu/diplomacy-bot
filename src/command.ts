@@ -225,10 +225,11 @@ export const commands: Record<string, Command> = {
                 .setRequired(true)
         ],
         execute(interaction, options) {
-            const slideId = extractId(options.getString('slide_link'))
+            const linkOption = options.getString('slide_link');
+            const slideId = extractId(linkOption);
             if (!slideId) {
                 interaction.reply({
-                    content: `Invalid link: ${slideId}`,
+                    content: `Invalid link: ${linkOption}`,
                     ephemeral: true
                 });
                 return;
