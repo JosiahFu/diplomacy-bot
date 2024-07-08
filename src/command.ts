@@ -12,7 +12,7 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
         content: `## Start of ${season} ${year}`,
         files: STATE.gSlideId ? [
             new AttachmentBuilder(`https://docs.google.com/presentation/d/${STATE.gSlideId}/export?format=png`)
-                .setName(`diplomacy_board_${STATE.gSlideId}_${year}_${season.toLowerCase()}.png`)
+                .setName(`diplomacy_board_${year}_${season.toLowerCase()}_${STATE.gSlideId}.png`)
         ] : undefined,
     })
     STATE.lastEndTurn = message.id
@@ -20,7 +20,7 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
     return message;
 }
 
-function extractId(link: string | null) {
+function extractSlideId(link: string | null) {
     if (link === null) return undefined
     return gSlideUrlRegex.exec(link)?.[1] ?? gSlideIdRegex.exec(link)?.[0] ?? undefined
 }
@@ -179,7 +179,7 @@ export const commands: Record<string, Command> = {
                 content: 'Starting a new game',
                 ephemeral: true
             });
-            const slideId = extractId(options.getString('slide_link', false))
+            const slideId = extractSlideId(options.getString('slide_link', false))
             resetState();
             if (slideId) {
                 STATE.gSlideId = slideId
@@ -226,7 +226,7 @@ export const commands: Record<string, Command> = {
         ],
         execute(interaction, options) {
             const linkOption = options.getString('slide_link');
-            const slideId = extractId(linkOption);
+            const slideId = extractSlideId(linkOption);
             if (!slideId) {
                 interaction.reply({
                     content: `Invalid link: ${linkOption}`,
