@@ -222,13 +222,14 @@ export const commands: Record<string, Command> = {
             new SlashCommandStringOption()
                 .setName('slide_link')
                 .setDescription('The URL or ID of the Google Slides document holding the current game')
-                .setRequired(false)
+                .setRequired(true)
         ],
         execute(interaction, options) {
-            const slideId = extractId(options.getString('slide_link', false))
+            const slideId = extractId(options.getString('slide_link'))
             if (!slideId) {
                 interaction.reply({
-                    content: 'Invalid link!'
+                    content: `Invalid link: ${slideId}`,
+                    ephemeral: true
                 });
                 return;
             }
