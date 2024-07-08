@@ -12,6 +12,7 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
         content: `## Start of ${season} ${year}`,
         files: STATE.gSlideId ? [
             new AttachmentBuilder(`https://docs.google.com/presentation/d/${STATE.gSlideId}/export?format=png`)
+                .setName(`diplomacy_board_${year}_${season.toLowerCase()}_${STATE.gSlideId}.png`)
         ] : undefined,
     })
     STATE.lastEndTurn = message.id
@@ -19,7 +20,7 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
     return message;
 }
 
-function extractId(link: string | null) {
+function extractSlideId(link: string | null) {
     if (link === null) return undefined
     return gSlideUrlRegex.exec(link)?.[1] ?? gSlideIdRegex.exec(link)?.[0] ?? undefined
 }
@@ -41,7 +42,7 @@ const roles: Record<Country, string> = {
 }
 
 const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9-]+)\/?/;
-const gSlideIdRegex = /[A-Za-z0-9-]+/
+const gSlideIdRegex = /^[A-Za-z0-9-]+$/
 
 export const commands: Record<string, Command> = {
     order: {
@@ -178,7 +179,7 @@ export const commands: Record<string, Command> = {
                 content: 'Starting a new game',
                 ephemeral: true
             });
-            const slideId = extractId(options.getString('slide_link', false))
+            const slideId = extractSlideId(options.getString('slide_link', false))
             resetState();
             if (slideId) {
                 STATE.gSlideId = slideId
@@ -213,6 +214,32 @@ export const commands: Record<string, Command> = {
                 content: `Set the turn to ${season} ${year}`,
                 ephemeral: true
             });
+        },
+    },
+    setslides: {
+        description: 'Set the Google Slide holding the game',
+        options: [
+            new SlashCommandStringOption()
+                .setName('slide_link')
+                .setDescription('The URL or ID of the Google Slides document holding the current game')
+                .setRequired(true)
+        ],
+        execute(interaction, options) {
+            const linkOption = options.getString('slide_link');
+            const slideId = extractSlideId(linkOption);
+            if (!slideId) {
+                interaction.reply({
+                    content: `Invalid link: ${linkOption}`,
+                    ephemeral: true
+                });
+                return;
+            }
+            STATE.gSlideId = slideId
+            interaction.reply({
+                content: `Set slide link to https://docs.google.com/presentation/d/${slideId}/`,
+                ephemeral: true
+            });
+            updateStorage();
         },
     },
     assigntargets: {
