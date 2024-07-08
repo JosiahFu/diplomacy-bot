@@ -42,7 +42,7 @@ const roles: Record<Country, string> = {
 }
 
 const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9-]+)\/?/;
-const gSlideIdRegex = /[A-Za-z0-9-]+/
+const gSlideIdRegex = /^[A-Za-z0-9-]+$/
 
 export const commands: Record<string, Command> = {
     order: {
