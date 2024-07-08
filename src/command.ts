@@ -12,6 +12,7 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
         content: `## Start of ${season} ${year}`,
         files: STATE.gSlideId ? [
             new AttachmentBuilder(`https://docs.google.com/presentation/d/${STATE.gSlideId}/export?format=png`)
+                .setName('game.png')
         ] : undefined,
     })
     STATE.lastEndTurn = message.id
