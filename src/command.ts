@@ -375,7 +375,7 @@ export const commands: Record<string, Command> = {
             })
         },
     },
-    showscoreboard: {
+    scoreboard: {
         description: 'Display the scoreboard',
         options: [
             new SlashCommandBooleanOption()
