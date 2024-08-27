@@ -1,4 +1,4 @@
-import { ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMemberRoleManager, Interaction, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel } from 'discord.js';
+import { APIGuildMember, ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Interaction, roleMention, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel, userMention } from 'discord.js';
 import { Country, STATE, Season, countries, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
@@ -8,7 +8,14 @@ function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
 }
 
 async function sendTurnMessage(interaction: ChatInputCommandInteraction, season: Season, year: number) {
-    const message = await getOutputChannel(interaction).send({
+    const channel = getOutputChannel(interaction)
+    if (STATE.scores !== undefined) {
+        await channel.send({
+            content: formatScoreboard()
+        })
+        STATE.lastScores = {...STATE.scores}
+    }
+    const message = await channel.send({
         content: `## Start of ${season} ${year}`,
         files: STATE.gSlideId ? [
             new AttachmentBuilder(`https://docs.google.com/presentation/d/${STATE.gSlideId}/export?format=png`)
@@ -18,6 +25,21 @@ async function sendTurnMessage(interaction: ChatInputCommandInteraction, season:
     STATE.lastEndTurn = message.id
     updateStorage();
     return message;
+}
+
+function displaydiff(prev: number | undefined, current: number) {
+    if (prev === undefined || prev === current) return ''
+    if (prev > current) return `(-${prev - current})`
+    return `(+${current - prev})`
+}
+
+function formatScoreboard() {
+    if (STATE.scores === undefined) return undefined
+    return '## Scoreboard\n' + Object.entries(STATE.scores).map(([role, score]) => `${roleMention(role)}: ${score} ${displaydiff(STATE.lastScores?.[role], score)}`).join('\n')
+}
+
+function getCountryRole(member: GuildMember | APIGuildMember | null) {
+    return (Object.entries(roles) as [Country, string][]).find(([_, id]) => (member?.roles as GuildMemberRoleManager).cache.has(id));
 }
 
 function extractSlideId(link: string | null) {
@@ -78,7 +100,7 @@ export const commands: Record<string, Command> = {
         execute(interaction, options) {
             const submitted = Object.keys(STATE.orders);
             interaction.reply({
-                content: `Recieved orders from:\n${submitted.length > 0 ? submitted.map(e => `<@${e}>`).join('\n') : 'Nobody'}`,
+                content: `Recieved orders from:\n${submitted.length > 0 ? submitted.map(e => userMention(e)).join('\n') : 'Nobody'}`,
                 ephemeral: true
             })
         },
@@ -90,7 +112,7 @@ export const commands: Record<string, Command> = {
                 content: 'Revealed all orders',
                 ephemeral: true,
             })
-            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([user, order]) => `<@${user}>: ${order}`).join('\n')}`})
+            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([user, order]) => `${userMention(user)}: ${order}`).join('\n')}`})
             STATE.lastOrders = STATE.orders
             STATE.orders = {}
             STATE.lastReveal = message.id
@@ -172,7 +194,11 @@ export const commands: Record<string, Command> = {
             new SlashCommandStringOption()
                 .setName('slide_link')
                 .setDescription('The URL or ID of the Google Slides document holding the current game')
-                .setRequired(false)
+                .setRequired(false),
+            new SlashCommandBooleanOption()
+                .setName('scoreboard')
+                .setDescription('Whether the game should use a scoreboard')
+                .setRequired(false),
         ],
         execute(interaction, options) {
             interaction.reply({
@@ -183,6 +209,9 @@ export const commands: Record<string, Command> = {
             resetState();
             if (slideId) {
                 STATE.gSlideId = slideId
+            }
+            if (options.getBoolean('scoreboard', false)) {
+                STATE.scores = Object.fromEntries(Object.values(roles).map(role => [role, 0]))
             }
             const [year, season] = STATE.turn;
             sendTurnMessage(interaction, season, year)
@@ -262,7 +291,7 @@ export const commands: Record<string, Command> = {
     gettarget: {
         description: 'Reveal what your target is',
         execute(interaction, options) {
-            const entry = (Object.entries(roles) as [Country, string][]).find(([_, id]) => (interaction.member?.roles as GuildMemberRoleManager).cache.has(id))
+            const entry = getCountryRole(interaction.member)
             if (entry === undefined) {
                 interaction.reply({
                     content: 'You don\'t have a country role',
@@ -279,10 +308,91 @@ export const commands: Record<string, Command> = {
             }
             const target = STATE.targets[entry[0]]
             interaction.reply({
-                content: `Your target is <@&${roles[target]}>`,
+                content: `Your target is ${roleMention(roles[target])}`,
                 ephemeral: true
             })
         }
+    },
+    setscore: {
+        description: 'Set a player\'s score',
+        options: [
+            new SlashCommandRoleOption()
+                .setName('country')
+                .setDescription('The country to set the score of')
+                .setRequired(true),
+            new SlashCommandIntegerOption()
+                .setName('value')
+                .setDescription('The score to set for the country')
+                .setRequired(true)
+        ],
+        async execute(interaction, options) {
+            if (STATE.scores === undefined) {
+                interaction.reply({content: 'Scoreboard not enabled for this game', ephemeral: true})
+                return
+            }
+            const targetRole = options.getRole('country', true)
+            if (!(Object.values(roles).includes(targetRole.id))) {
+                interaction.reply({content: 'Must be a country role', ephemeral: true})
+                return
+            }
+            const value = options.getInteger('value', true)
+            STATE.scores[targetRole.id] = value
+            updateStorage()
+            interaction.reply({
+                content: `Set score for ${roleMention(targetRole.id)} to ${value}`,
+                ephemeral: true,
+            })
+        },
+    },
+    addscore: {
+        description: 'Add to a player\'s score',
+        options: [
+            new SlashCommandRoleOption()
+                .setName('country')
+                .setDescription('The country to add to the score of')
+                .setRequired(true),
+            new SlashCommandIntegerOption()
+                .setName('value')
+                .setDescription('The value to add for that country')
+                .setRequired(true)
+        ],
+        async execute(interaction, options) {
+            if (STATE.scores === undefined) {
+                interaction.reply({content: 'Scoreboard not enabled for this game', ephemeral: true})
+                return
+            }
+            const targetRole = options.getRole('country', true)
+            if (!(Object.values(roles).includes(targetRole.id))) {
+                interaction.reply({content: 'Must be a country role', ephemeral: true})
+                return
+            }
+            const value = options.getInteger('value', true)
+            STATE.scores[targetRole.id] += + value
+            updateStorage()
+            interaction.reply({
+                content: `Added ${value} to the score of ${roleMention(targetRole.id)} for a total of ${STATE.scores[targetRole.id]}`,
+                ephemeral: true,
+            })
+        },
+    },
+    showscoreboard: {
+        description: 'Display the scoreboard',
+        options: [
+            new SlashCommandBooleanOption()
+                .setName('public')
+                .setDescription('Whether the scoreboard should display publicly. Defaults to false.')
+                .setRequired(false)
+        ],
+        execute(interaction, options) {
+            if (STATE.scores === undefined) {
+                interaction.reply({content: 'Scoreboard not enabled for this game', ephemeral: true})
+                return
+            }
+            interaction.reply({
+                content: formatScoreboard()!,
+                ephemeral: !(options.getBoolean('public', false) ?? false)
+            })
+        },
     }
 };
 
