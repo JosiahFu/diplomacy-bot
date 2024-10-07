@@ -11,7 +11,7 @@ export const countries = ['austria', 'england', 'france', 'germany', 'italy', 'r
 export type Country = (typeof countries)[number]
 
 interface State {
-    orders: Record<string, string>,
+    orders: Partial<Record<Country, string>>,
     turn: [year: number, season: Season],
     lastReveal: string | undefined,
     lastEndTurn: string | undefined,

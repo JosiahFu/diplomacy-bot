@@ -1,4 +1,4 @@
-import { APIGuildMember, ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Interaction, roleMention, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel, userMention } from 'discord.js';
+import { APIGuildMember, ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Interaction, roleMention, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel, userMention, VoiceChannel } from 'discord.js';
 import { Country, STATE, Season, countries, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
@@ -39,7 +39,7 @@ function formatScoreboard() {
 }
 
 function getCountryRole(member: GuildMember | APIGuildMember | null) {
-    return (Object.entries(roles) as [Country, string][]).find(([_, id]) => (member?.roles as GuildMemberRoleManager).cache.has(id));
+    return (Object.entries(roles) as [Country, string][]).find(([_, id]) => (member?.roles as GuildMemberRoleManager).cache.has(id))?.[0];
 }
 
 function extractSlideId(link: string | null) {
@@ -63,6 +63,18 @@ const roles: Record<Country, string> = {
     turkey: process.env.ROLE_TURKEY,
 }
 
+const vcs: Record<Country | 'jail' | 'main', string> = {
+    austria: process.env.VC_AUSTRIA,
+    england: process.env.VC_ENGLAND,
+    france: process.env.VC_FRANCE,
+    germany: process.env.VC_GERMANY,
+    italy: process.env.VC_ITALY,
+    russia: process.env.VC_RUSSIA,
+    turkey: process.env.VC_TURKEY,
+    jail: process.env.VC_JAIL,
+    main: process.env.VC_MAIN,
+}
+
 const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9-]+)\/?/;
 const gSlideIdRegex = /^[A-Za-z0-9-]+$/
 
@@ -73,9 +85,16 @@ export const commands: Record<string, Command> = {
             new SlashCommandStringOption().setName('order').setDescription('Your order').setRequired(true)
         ],
         async execute(interaction, options) {
-            const order = options.getString('order')
-            if (!order) return;
-            STATE.orders[interaction.user.id] = order;
+            const order = options.getString('order', true)
+            const countryRole = getCountryRole(interaction.member)
+            if (countryRole === undefined) {
+                await interaction.reply({
+                    content: `You are not part of the game`,
+                    ephemeral: true,
+                })
+                return    
+            }
+            STATE.orders[countryRole] = order;
             updateStorage();
             await interaction.reply({
                 content: `Your order is:\n> ${order}`,
@@ -87,7 +106,15 @@ export const commands: Record<string, Command> = {
         description: 'View your current order',
         options: [],
         async execute(interaction) {
-            const order = STATE.orders[interaction.user.id]
+            const countryRole = getCountryRole(interaction.member)
+            if (countryRole === undefined) {
+                await interaction.reply({
+                    content: `You are not part of the game`,
+                    ephemeral: true,
+                })
+                return    
+            }
+            const order = STATE.orders[countryRole]
             await interaction.reply({
                 content: `Your order is:\n> ${order}`,
                 ephemeral: true,
@@ -112,7 +139,7 @@ export const commands: Record<string, Command> = {
                 content: 'Revealed all orders',
                 ephemeral: true,
             })
-            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([user, order]) => `${userMention(user)}: ${order}`).join('\n')}`})
+            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([role, order]) => `${roleMention(roles[role as Country])}: ${order}`).join('\n')}`})
             STATE.lastOrders = STATE.orders
             STATE.orders = {}
             STATE.lastReveal = message.id
@@ -306,7 +333,7 @@ export const commands: Record<string, Command> = {
                 })
                 return
             }
-            const target = STATE.targets[entry[0]]
+            const target = STATE.targets[entry]
             interaction.reply({
                 content: `Your target is ${roleMention(roles[target])}`,
                 ephemeral: true
@@ -393,7 +420,63 @@ export const commands: Record<string, Command> = {
                 ephemeral: !(options.getBoolean('public', false) ?? false)
             })
         },
-    }
+    },
+    move_central: {
+        description: 'Move everyone to the main VC',
+        execute(interaction) {
+            const mainChannel = interaction.guild!.channels.cache.get(vcs.main)
+            if (!(mainChannel instanceof VoiceChannel)) {
+                interaction.reply({content: 'Bad configuration', ephemeral: true})
+                return
+            }
+            interaction.reply({content: 'Moved everyone to the correct channels', ephemeral: true})
+            const rolesList = Object.values(roles)
+            interaction.guild?.members.cache.filter(mem => mem.roles.cache.some(role => rolesList.includes(role.id))).forEach(mem => {
+                mem.voice.setChannel(mainChannel)
+            })
+            interaction.guild!.members.cache.find(member => member.user === interaction.user)!.voice.setChannel(mainChannel)
+        },
+    },
+    move_distribute: {
+        description: 'Move everyone to their respective VCs',
+        async execute(interaction) {
+            interaction.reply({content: 'Moving everyone to the correct channels', ephemeral: true})
+            for (const country of countries) {
+                const channel = interaction.guild!.channels.cache.get(vcs[country])
+                if (!(channel instanceof VoiceChannel)) {
+                    interaction.followUp({content: `Bad configuration for ${country}`, ephemeral: true})
+                    return
+                }
+                interaction.guild?.members.cache.filter(mem => mem.roles.cache.some(role => role.id === roles[country])).forEach(mem => {
+                    mem.voice.setChannel(channel)
+                })
+            }
+        },
+    },
+    jail: {
+        description: 'Move someone to jail',
+        options: [
+            new SlashCommandUserOption()
+                .setName('user')
+                .setDescription('The user to send to jail')
+                .setRequired(true)
+        ],
+        async execute(interaction, options) {
+            const jail = interaction.guild!.channels.cache.get(vcs.jail)
+            if (!(jail instanceof VoiceChannel)) {
+                interaction.reply({content: 'Bad configuration', ephemeral: true})
+                return
+            }
+            const user = options.getUser('user', true)
+            const member = interaction.guild!.members.cache.find(member => member.user == user)!
+            if (member.voice.channel !== (interaction.member as GuildMember).voice.channel) {
+                interaction.reply({content: `You must be in the same channel as ${userMention(user.id)}`, ephemeral: true})
+                return
+            }
+            interaction.reply({content: `Moved ${userMention(user.id)} to jail`, ephemeral: true})
+            member.voice.setChannel(jail)
+        },
+    },
 };
 
 export function getOptionAdd<T extends ApplicationCommandOptionBase>(option: T): ((input: T) => void) | undefined {

@@ -13,7 +13,15 @@ declare global {
             readonly ROLE_ITALY: string;
             readonly ROLE_RUSSIA: string;
             readonly ROLE_TURKEY: string;
-
+            readonly VC_MAIN: string;
+            readonly VC_ENGLAND: string;
+            readonly VC_FRANCE: string;
+            readonly VC_GERMANY: string;
+            readonly VC_AUSTRIA: string;
+            readonly VC_ITALY: string;
+            readonly VC_RUSSIA: string;
+            readonly VC_TURKEY: string;
+            readonly VC_JAIL: string;
         }
     }
 }
