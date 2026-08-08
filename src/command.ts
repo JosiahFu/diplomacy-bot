@@ -75,8 +75,8 @@ const vcs: Record<Country | 'jail' | 'main', string> = {
     main: process.env.VC_MAIN,
 }
 
-const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9-]+)\/?/;
-const gSlideIdRegex = /^[A-Za-z0-9-]+$/
+const gSlideUrlRegex = /docs\.google\.com\/presentation\/d\/([A-Za-z0-9_-]+)\/?/;
+const gSlideIdRegex = /^[A-Za-z0-9_-]+$/
 
 export const commands: Record<string, Command> = {
     order: {
