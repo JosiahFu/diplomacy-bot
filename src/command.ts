@@ -1,4 +1,4 @@
-import { APIGuildMember, ApplicationCommandOptionBase, ApplicationCommandOptionType, Attachment, AttachmentBuilder, CacheType, ChatInputCommandInteraction, Client, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Interaction, roleMention, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandChannelOption, SlashCommandIntegerOption, SlashCommandNumberOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, StringSelectMenuOptionBuilder, TextChannel, userMention, VoiceChannel } from 'discord.js';
+import { APIGuildMember, ApplicationCommandOptionBase, ApplicationCommandOptionType, AttachmentBuilder, CacheType, ChatInputCommandInteraction, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, roleMention, SharedSlashCommandOptions, SlashCommandBooleanOption, SlashCommandIntegerOption, SlashCommandRoleOption, SlashCommandStringOption, SlashCommandUserOption, userMention, VoiceChannel } from 'discord.js';
 import { Country, STATE, Season, countries, decrementTurn, incrementTurn, resetState, updateStorage } from './storage.js';
 
 function getOutputChannel(interaction: ChatInputCommandInteraction<CacheType>) {
@@ -97,7 +97,7 @@ export const commands: Record<string, Command> = {
             STATE.orders[countryRole] = order;
             updateStorage();
             await interaction.reply({
-                content: `Your order is:\n> ${order}`,
+                content: `Your order is:\n\`${order}\``,
                 ephemeral: true,
             })
         },
@@ -116,18 +116,17 @@ export const commands: Record<string, Command> = {
             }
             const order = STATE.orders[countryRole]
             await interaction.reply({
-                content: `Your order is:\n> ${order}`,
+                content: `Your order is:\n\`${order}\``,
                 ephemeral: true,
             })
         },
     },
     orderstatus: {
         description: 'See which players have submitted orders',
-        options: [],
-        execute(interaction, options) {
-            const submitted = Object.keys(STATE.orders);
+        execute(interaction) {
+            const submitted = Object.keys(STATE.orders) as Country[];
             interaction.reply({
-                content: `Recieved orders from:\n${submitted.length > 0 ? submitted.map(e => userMention(e)).join('\n') : 'Nobody'}`,
+                content: `Received orders from:\n${submitted.length > 0 ? submitted.map(e => roleMention(roles[e])).join('\n') : 'Nobody'}`,
                 ephemeral: true
             })
         },
@@ -139,7 +138,7 @@ export const commands: Record<string, Command> = {
                 content: 'Revealed all orders',
                 ephemeral: true,
             })
-            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([role, order]) => `${roleMention(roles[role as Country])}: ${order}`).join('\n')}`})
+            const message = await getOutputChannel(interaction).send({content: `# Orders:\n${Object.entries(STATE.orders).map(([role, order]) => `${roleMention(roles[role as Country])}: \`${order}\``).join('\n')}`})
             STATE.lastOrders = STATE.orders
             STATE.orders = {}
             STATE.lastReveal = message.id
@@ -178,8 +177,8 @@ export const commands: Record<string, Command> = {
     endturn: {
         description: 'End the turn',
         async execute(interaction) {
-            const [year, season] = STATE.turn;
             incrementTurn();
+            const [year, season] = STATE.turn;
             sendTurnMessage(interaction, season, year)
             interaction.reply({
                 content: 'Ended the turn',
@@ -431,10 +430,11 @@ export const commands: Record<string, Command> = {
             }
             interaction.reply({content: 'Moved everyone to the correct channels', ephemeral: true})
             const rolesList = Object.values(roles)
-            interaction.guild?.members.cache.filter(mem => mem.roles.cache.some(role => rolesList.includes(role.id))).forEach(mem => {
+            interaction.guild?.members.cache.filter(mem => mem.voice.channel !== null && mem.roles.cache.some(role => rolesList.includes(role.id))).forEach(mem => {
                 mem.voice.setChannel(mainChannel)
             })
-            interaction.guild!.members.cache.find(member => member.user === interaction.user)!.voice.setChannel(mainChannel)
+            const user = interaction.guild?.members.cache.find(member => member.user === interaction.user)
+            if (user?.voice.channel !== null) user?.voice.setChannel(mainChannel)
         },
     },
     move_distribute: {
@@ -447,7 +447,7 @@ export const commands: Record<string, Command> = {
                     interaction.followUp({content: `Bad configuration for ${country}`, ephemeral: true})
                     return
                 }
-                interaction.guild?.members.cache.filter(mem => mem.roles.cache.some(role => role.id === roles[country])).forEach(mem => {
+                interaction.guild?.members.cache.filter(mem => mem.voice.channel !== null && mem.roles.cache.some(role => role.id === roles[country])).forEach(mem => {
                     mem.voice.setChannel(channel)
                 })
             }
